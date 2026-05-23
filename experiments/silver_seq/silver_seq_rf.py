@@ -1,0 +1,81 @@
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import classification_report
+import pandas as pd
+from sklearn.metrics import roc_curve, auc, RocCurveDisplay
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+
+counts_path = '/Users/idekeradmin/Dropbox/GitHub/AD_prediction_blood/experiments/silver_seq/silver_seq_counts.txt'
+silver_seq_counts = pd.read_csv(counts_path,  sep="\t")
+silver_seq_counts = silver_seq_counts.astype(int)
+
+silver_seq_metadata = pd.read_excel('/Users/idekeradmin/Dropbox/GitHub/AD_prediction_blood/experiments/silver_seq/silver_seq_metadata.xlsx')
+
+# for a given train and test, the data needs to be in a
+# X : a 2D array of samples x features - samples are rows, features are columns
+# y : a 1D array of labels
+# y values can be integers, string, other - sklearn encodes them internally
+
+
+# the split between training and test is accomplished by sklearn train_test_split
+# which 
+
+# If we include metadata features such "sex" with n non-numeric categorical values, e.g., "F, M" 
+# those require encoding. Sex, in this dataset, is binary, so we just map to 1, 0.
+# For categories with multiple values, such as APOE status, the sklearn option is "one hot" 
+# which maps them to n binary inputs,
+
+# Our data, X, is swapped, features are rows. we need to rotate the array.
+X = silver_seq_counts.T
+
+# We also have a large number of features. We need to filter/aggregate the features
+
+# test: features = genes with the highest maximum TPM
+# pandas methods:
+# value based on column values X.<op>(). sum, max, etc.
+# filter columns by slicing: X.loc[:, val <comparison> threshold]
+
+def max_tpm_features(X, threshold):
+    X = X.loc[:, X.max() > threshold]
+    y = [row.split('_')[0] for row in X.index]
+    return X, y
+
+def variance_features(X, threshold):
+    X = X.loc[:, X.var() > threshold]
+    y = [row.split('_')[0] for row in X.index]
+    return X, y
+
+def silver_seq_classify(X, y, clf = RandomForestClassifier()):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+    print(f'X_train shape = {X_train.shape}')
+    print(classification_report(y_test, y_pred))
+    cm = confusion_matrix(y_test, y_pred)
+    ConfusionMatrixDisplay(cm, display_labels=clf.classes_).plot()
+    plot_roc(clf, X_test, y_test)
+
+def plot_roc(clf, X_test, y_test):
+    # probability scores rather than classification
+    # they are probabilities of positive class
+    # AD is 0 based on default alphabetical sorting of classes
+    y_scores = clf.predict_proba(X_test)[:, 0] 
+    fpr, tpr, thresholds = roc_curve(y_test, y_scores, pos_label='AD')
+    roc_auc = auc(fpr, tpr)
+    # standard ROC plot:
+    RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc).plot()
+    plt.show()
+
+# X, y = max_tpm_features(X, 500)
+
+X, y = variance_features(X, 400)
+silver_seq_classify(X, y, LogisticRegression(max_iter=200))
+
+# silver_seq_classify(X, y, RandomForestClassifier())
+
+# silver_seq_classify(X, y, MultinomialNB())
+
