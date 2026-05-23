@@ -1,4 +1,12 @@
-# Alzheimer's Disease prediction from exRNA in blood
+# BENG 203 Class Project
+
+This repo was started from the AD_Prediction_blood repo
+
+Utilities and code experiments are added in /experiments
+
+## Original README:
+
+Alzheimer's Disease prediction from exRNA in blood
 
 The goal of this project is to predict Alzheimer Disease (AD) using blood extracellular RNA sequencing data. Currently, no gene panel is found to be able to reproducibly classify AD and control subjects across multiple research cohorts.
 
