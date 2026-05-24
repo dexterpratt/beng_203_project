@@ -7,7 +7,9 @@ import pandas as pd
 from sklearn.metrics import roc_curve, auc, RocCurveDisplay
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import silver_seq_utils as utils
 
+'''
 counts_path = '/Users/idekeradmin/Dropbox/GitHub/AD_prediction_blood/experiments/silver_seq/silver_seq_counts.txt'
 silver_seq_counts = pd.read_csv(counts_path,  sep="\t")
 silver_seq_counts = silver_seq_counts.astype(int)
@@ -29,6 +31,7 @@ silver_seq_metadata = pd.read_excel('/Users/idekeradmin/Dropbox/GitHub/AD_predic
 # which maps them to n binary inputs,
 
 # Our data, X, is swapped, features are rows. we need to rotate the array.
+
 X = silver_seq_counts.T
 
 # We also have a large number of features. We need to filter/aggregate the features
@@ -68,11 +71,14 @@ def plot_roc(clf, X_test, y_test):
     # standard ROC plot:
     RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc).plot()
     plt.show()
+'''
+
+X, silver_seq_counts, silver_seq_counts = utils.load_silver_seq_data()
 
 # X, y = max_tpm_features(X, 500)
 
-X, y = variance_features(X, 400)
-silver_seq_classify(X, y, LogisticRegression(max_iter=200))
+X, y = utils.variance_features(X, 400)
+utils.silver_seq_classify(X, y, LogisticRegression(max_iter=200))
 
 # silver_seq_classify(X, y, RandomForestClassifier())
 
