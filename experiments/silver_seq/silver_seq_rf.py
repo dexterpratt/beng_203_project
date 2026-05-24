@@ -8,7 +8,6 @@ from sklearn.metrics import roc_curve, auc, RocCurveDisplay
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
-
 counts_path = '/Users/idekeradmin/Dropbox/GitHub/AD_prediction_blood/experiments/silver_seq/silver_seq_counts.txt'
 silver_seq_counts = pd.read_csv(counts_path,  sep="\t")
 silver_seq_counts = silver_seq_counts.astype(int)
