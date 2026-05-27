@@ -8,6 +8,9 @@ from sklearn.metrics import roc_curve, auc, RocCurveDisplay
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from pathlib import Path
+import ndex2
+from ndex2.cx2 import CX2Network, RawCX2NetworkFactory
+import json
 
 DATA_DIR = Path(__file__).resolve().parent
 
@@ -17,10 +20,10 @@ def load_silver_seq_data():
     silver_seq_counts = silver_seq_counts.astype(int)
     # Our data, X, is swapped, features are rows. we need to rotate the array.
     X = silver_seq_counts.T
-    gene_mappings = pd.read_csv(DATA_DIR / 'gene_mappings.csv')
+    # gene_mappings = pd.read_csv(DATA_DIR / 'gene_mappings.csv')
 
     silver_seq_metadata = pd.read_excel(DATA_DIR / 'silver_seq_metadata.xlsx')
-    return X, silver_seq_counts, silver_seq_metadata, gene_mappings
+    return X, silver_seq_counts, silver_seq_metadata
 
 def max_tpm_features(X, threshold):
     X = X.loc[:, X.max() > threshold]
@@ -53,6 +56,41 @@ def plot_roc(clf, X_test, y_test):
     RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc).plot()
     plt.show()
 
-def filter_by_gene_symbols(symbol_list, gene_mappings, X):
+def translate_symbols(symbol_list):
+    mappings = pd.read_csv(DATA_DIR / "gene_mappings.csv", delimiter=',')
+    ensemble = mappings.loc[mappings["symbol"].isin(symbol_list), "query"]
+    return ensemble
 
-    return 
+def filter_genes_by_symbols(X, symbol_list, exclude=False):
+    ids = translate_symbols(symbol_list)
+    if exclude:
+        return X.loc[:, ~X.columns.isin(ids)]
+    return X.loc[:, X.columns.isin(ids)]
+
+def search_ndex(search_string, size=100):
+    client = ndex2.client.Ndex2("http://public.ndexbio.org")
+    search_results = client.search_networks(
+        search_string=search_string, # example: 'Alzheimers nodeCount:[10 TO 55]'
+        start=0,             # Number of initial records to skip (useful for pagination)
+        size=size           # Maximum number of network results to return
+    )
+    # Returns a dictionary containing a list of network summaries
+    # Change that into a dataframe
+    networks = pd.DataFrame(search_results.get('networks', []))
+
+def get_ndex_network_by_id(network_uuid):
+    client = ndex2.client.Ndex2("http://ndexbio.org")
+    client_resp = client.get_network_as_cx2_stream(network_uuid)
+    # Create CX2Network factory
+    factory = RawCX2NetworkFactory()
+    # Convert downloaded network to CX2Network object
+    cx2_network = factory.get_cx2network(json.loads(client_resp.content))
+    return cx2_network
+
+def get_node_names(cx2_network, name_field="name"):
+    node_names = []
+    for id, node in cx2_network.get_nodes().items():
+        properties = node['v']
+        name = properties[name_field]
+        node_names.append(name)
+    return node_names

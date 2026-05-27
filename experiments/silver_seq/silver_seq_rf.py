@@ -79,7 +79,18 @@ X, silver_seq_counts, silver_seq_counts = utils.load_silver_seq_data()
 
 # X, y = max_tpm_features(X, 500)
 
-X, y = utils.variance_features(X, 400)
+# X, y = utils.variance_features(X, 400)
+
+cx2_network = utils.get_ndex_network_by_id("49e43d68-939b-11ea-aaef-0ac135e8bacf")
+
+symbol_list = utils.get_node_names(cx2_network, name_field="livia name")
+
+print(f'symbols = {symbol_list}')
+
+X = utils.filter_genes_by_symbols(X, symbol_list, exclude=False)
+
+y = [row.split('_')[0] for row in X.index]
+
 model_pipeline = Pipeline([
     ('scaler', StandardScaler()),
     ('logreg', LogisticRegression(max_iter=1000, random_state=42)) # Keep increased max_iter
