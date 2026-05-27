@@ -8,6 +8,8 @@ from sklearn.metrics import roc_curve, auc, RocCurveDisplay
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import silver_seq_utils as utils
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 
 '''
 counts_path = '/Users/idekeradmin/Dropbox/GitHub/AD_prediction_blood/experiments/silver_seq/silver_seq_counts.txt'
@@ -78,7 +80,12 @@ X, silver_seq_counts, silver_seq_counts = utils.load_silver_seq_data()
 # X, y = max_tpm_features(X, 500)
 
 X, y = utils.variance_features(X, 400)
-utils.silver_seq_classify(X, y, LogisticRegression(max_iter=200))
+model_pipeline = Pipeline([
+    ('scaler', StandardScaler()),
+    ('logreg', LogisticRegression(max_iter=1000, random_state=42)) # Keep increased max_iter
+])
+
+utils.silver_seq_classify(X, y, model_pipeline)
 
 # silver_seq_classify(X, y, RandomForestClassifier())
 

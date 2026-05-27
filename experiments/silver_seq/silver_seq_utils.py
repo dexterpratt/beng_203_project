@@ -17,9 +17,10 @@ def load_silver_seq_data():
     silver_seq_counts = silver_seq_counts.astype(int)
     # Our data, X, is swapped, features are rows. we need to rotate the array.
     X = silver_seq_counts.T
+    gene_mappings = pd.read_csv(DATA_DIR / 'gene_mappings.csv')
 
     silver_seq_metadata = pd.read_excel(DATA_DIR / 'silver_seq_metadata.xlsx')
-    return X, silver_seq_counts, silver_seq_metadata
+    return X, silver_seq_counts, silver_seq_metadata, gene_mappings
 
 def max_tpm_features(X, threshold):
     X = X.loc[:, X.max() > threshold]
@@ -31,8 +32,8 @@ def variance_features(X, threshold):
     y = [row.split('_')[0] for row in X.index]
     return X, y
 
-def silver_seq_classify(X, y, clf = RandomForestClassifier()):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+def silver_seq_classify(X, y, clf = None, test_size=0.2, random_state=42):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     clf.fit(X_train, y_train)
     y_pred = clf.predict(X_test)
     print(f'X_train shape = {X_train.shape}')
@@ -51,3 +52,7 @@ def plot_roc(clf, X_test, y_test):
     # standard ROC plot:
     RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc).plot()
     plt.show()
+
+def filter_by_gene_symbols(symbol_list, gene_mappings, X):
+
+    return 
