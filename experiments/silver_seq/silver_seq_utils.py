@@ -61,6 +61,11 @@ def translate_symbols(symbol_list):
     ensemble = mappings.loc[mappings["symbol"].isin(symbol_list), "query"]
     return ensemble
 
+def translate_ensemble(ensemble_list):
+    mappings = pd.read_csv(DATA_DIR / "gene_mappings.csv", delimiter=',')
+    symbols = mappings.loc[mappings["query"].isin(ensemble_list), "symbol"]
+    return symbols
+
 def filter_genes_by_symbols(X, symbol_list, exclude=False):
     ids = translate_symbols(symbol_list)
     if exclude:
