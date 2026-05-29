@@ -25,6 +25,36 @@ def load_silver_seq_data():
     silver_seq_metadata = pd.read_excel(DATA_DIR / 'silver_seq_metadata.xlsx')
     return X, silver_seq_counts, silver_seq_metadata
 
+#test
+def load_silver_seq_data2():
+    counts_path = DATA_DIR / 'silver_seq_counts.txt'
+    #counts_path = os.path.join(REPO_PATH, 'experiments/silver_seq/silver_seq_counts.txt') #internal testing
+    silver_seq_counts = pd.read_csv(counts_path, sep="\t")
+    silver_seq_counts = silver_seq_counts.astype(int)
+    # Our data, X, is swapped, features are rows. we need to rotate the array.
+    X = silver_seq_counts.T
+    # gene_mappings = pd.read_csv(DATA_DIR / 'gene_mappings.csv')
+
+    silver_seq_metadata = pd.read_excel(DATA_DIR / 'silver_seq_metadata.xlsx')
+    #silver_seq_metadata = pd.read_csv(os.path.join(REPO_PATH, 'experiments/silver_seq/silver_seq_metadata.csv')) #internal testing
+
+    #load additional metadata
+    supp_df = pd.read_csv(DATA_DIR / 'additionalSupplementalInfo.txt', sep='\t')
+    #supp_df = pd.read_csv(os.path.join(REPO_PATH, 'experiments/silver_seq/additionalSupplementalInfo.txt'), sep='\t') #internal testing
+    #avoid repeated columns in merge
+    cols_to_keep = [col for col in supp_df.columns if col not in ['braak_stage', 'group']]
+    supp_df_filtered = supp_df[cols_to_keep]
+    #merge info
+    combined_df = silver_seq_metadata.merge(supp_df_filtered, on='donor_id_alias', how='left')
+
+    #find the max collection year for each donor, assume death age corresponds to last year sample collected (best approximation)
+    combined_df['max_year'] = combined_df.groupby('donor_id_alias')['year_sample'].transform('max')
+    combined_df['age_at_collection'] = combined_df['age_at_death'] - (combined_df['max_year'] - combined_df['year_sample'])
+
+    silver_seq_metadata = combined_df.copy()
+
+    return X, silver_seq_counts, silver_seq_metadata
+
 def max_tpm_features(X, threshold):
     X = X.loc[:, X.max() > threshold]
     y = [row.split('_')[0] for row in X.index]
