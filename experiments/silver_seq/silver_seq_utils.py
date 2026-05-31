@@ -86,8 +86,9 @@ def plot_roc(clf, X_test, y_test):
     RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc).plot()
     plt.show()
 
-def translate_symbols(symbol_list):
-    mappings = pd.read_csv(DATA_DIR / "gene_mappings.csv", delimiter=',')
+def translate_symbols(symbol_list, mappings=None):
+    if mappings is None:
+        mappings = pd.read_csv(DATA_DIR / "gene_mappings.csv", delimiter=',')
     ensemble = mappings.loc[mappings["symbol"].isin(symbol_list), "query"]
     return ensemble
 
