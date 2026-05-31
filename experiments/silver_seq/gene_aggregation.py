@@ -130,11 +130,7 @@ def create_go_gene_sets():
 #     fx = X.loc[X.index.isin(ids)]
 #     return fx.mean(numeric_only=True).to_frame().T
 
-def feature_row(X, ids):
-    fx = X.loc[:, X.columns.isin(ids)]
-    return fx.mean(axis=1, numeric_only=True).to_frame().T
-
-def gene_set_features(X, gene_sets):
+def gene_set_features(X, gene_sets, min_genes, max_genes):
     # input: X where the rows are genes
     rows = []
     terms = []
@@ -142,31 +138,126 @@ def gene_set_features(X, gene_sets):
     for i in gene_sets.index:
         idstring = gene_sets.loc[i, "ensemble"]
         ids = idstring.split(" ")
-        terms.append(gene_sets.loc[i, "name"])
-        row = feature_row(X, ids)
-        rows.append(row)
+        filtered_genes = X.loc[X.index.isin(ids)]
+        n_matched = len(filtered_genes)
+        if n_matched >= min_genes and n_matched <= max_genes:
+            row = filtered_genes.var(axis=0, numeric_only=True).to_frame().T
+            terms.append(gene_sets.loc[i, "name"])
+            rows.append(row)
+    if len(terms) == 0:
+        return None
     features = pd.concat(rows)
     features.index = terms
     return features
 
+def filter_by_tpm(X, threshold):
+    X = X.loc[:, X.max() > threshold]
+    y = [row.split('_')[0] for row in X.index]
+    return X, y
+
+#------------------------------------------------------
+
 go_gene_sets = pd.read_csv(DATA_DIR / "data/gene_sets.csv")
 
-X, silver_seq_counts, silver_seq_counts = utils.load_silver_seq_data()
+X, silver_seq_counts, silver_seq_meta = utils.load_silver_seq_data()
 
-X2 = gene_set_features(X, go_gene_sets)
+print(f'genes before filtering = {X.shape}')
 
-print(X2.shape)
-print(X2.head(5))
+# print(X.head())
+
+min_threshold = 100
+
+max_threshold = 10000
+
+# for i in range(5):
+#     m = X.iloc[:,i].max()
+#     print(f'max = {m}')
+
+X = X.loc[X.max(axis=1) >= min_threshold]
+
+X = X.loc[X.max(axis=1) <= max_threshold]
 
 
-y = [row.split('_')[0] for row in X2.index]
+print(f'genes after filter between {min_threshold} and {max_threshold} = {X.shape}')
 
-print(X2.shape)
+min_genes = 1
+max_genes = 10
 
-model_pipeline = Pipeline([
-    ('scaler', StandardScaler()),
-    ('logreg', LogisticRegression(max_iter=5000, random_state=42)) # Keep increased max_iter
-])
+X_gs = gene_set_features(X, go_gene_sets, min_genes, max_genes)
 
-utils.silver_seq_classify(X2, y, model_pipeline)
+'''
+- Networks based on relevant processes, select from filtered genes
+    - autophagy
+    - neurodegeneration
+    - alzheimer's
+    - inflammation types
+    - ox-phos
+    - mtor
+    - cell cycle
+    - hypoxia
+    - metabolic
+    - cell death
+        - caspase
+    - rna binding
+    - cytosolic rna sensing
+    - growth and proliferation
+'''
 
+filter_string = "autophag"
+
+X_gs = X_gs.loc[X_gs.index.str.contains(filter_string)]
+
+print(f'gene sets {min_genes} to {max_genes} and name contains {filter_string} = {X_gs.shape}')
+
+meta_cols = ['age_at_collection', 'sex', 'year_sample', 'apoe']
+
+meta = silver_seq_meta.set_index("sample_id_alias")[meta_cols]
+
+meta = pd.get_dummies(meta[meta_cols], drop_first=True)
+
+meta_features = meta.reindex(X_gs.columns).T
+
+X_all = pd.concat([X_gs, meta_features])
+
+# transpose so samples are rows and features are columns (sklearn convention)
+X_all = X_all.T
+
+y = [s.split('_')[0] for s in X_all.index]
+
+# print("y:")
+# print(y)
+
+# model_pipeline = Pipeline([
+#     ('scaler', StandardScaler()),
+#     ('logreg', LogisticRegression(max_iter=5000, random_state=42)) # Keep increased max_iter
+# ])
+
+# utils.silver_seq_classify(X2, y, model_pipeline)
+
+
+clf = RandomForestClassifier(n_estimators=100, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X_all, y, test_size=0.2, random_state=42)
+print(X_train.head())
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+print(f'X_train shape = {X_train.shape}')
+print(classification_report(y_test, y_pred))
+cm = confusion_matrix(y_test, y_pred)
+ConfusionMatrixDisplay(cm, display_labels=clf.classes_).plot()
+utils.plot_roc(clf, X_test, y_test)
+    
+
+# --- Plot 2: Feature Importance ---
+# We extract the importance scores and map them to column names
+importances = clf.feature_importances_
+feature_names = X_all.columns
+forest_importances = pd.Series(importances, index=feature_names).sort_values(ascending=True)
+forest_importances = forest_importances[-10:]
+
+plt.figure(figsize=(10, 6))
+forest_importances.plot(kind='barh', color='skyblue', edgecolor='black')
+plt.title('Random Forest Feature Importance')
+plt.xlabel('Importance Score (Gini Importance)')
+plt.ylabel('Features')
+plt.tight_layout()
+plt.show()

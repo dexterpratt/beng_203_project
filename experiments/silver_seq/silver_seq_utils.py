@@ -30,9 +30,9 @@ def load_silver_seq_data():
     counts_path = DATA_DIR / 'silver_seq_counts.txt'
     #counts_path = os.path.join(REPO_PATH, 'experiments/silver_seq/silver_seq_counts.txt') #internal testing
     silver_seq_counts = pd.read_csv(counts_path, sep="\t")
-    silver_seq_counts = silver_seq_counts.astype(int)
+    X = silver_seq_counts.astype(int)
     # Our data, X, is swapped, features are rows. we need to rotate the array.
-    X = silver_seq_counts.T
+    # X = silver_seq_counts.T
     # gene_mappings = pd.read_csv(DATA_DIR / 'gene_mappings.csv')
 
     silver_seq_metadata = pd.read_excel(DATA_DIR / 'silver_seq_metadata.xlsx')
