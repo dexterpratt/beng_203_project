@@ -58,22 +58,25 @@ Gene filters
 Try experiments with cross-validation, learn how that works
 
 '''
+import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import classification_report
-import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 from sklearn.metrics import roc_curve, auc, RocCurveDisplay
-import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+
 from pathlib import Path
 import ndex2
 from ndex2.cx2 import CX2Network, RawCX2NetworkFactory
 import json
 import silver_seq_utils as utils
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
+
 
 DATA_DIR = Path(__file__).resolve().parent
 
@@ -141,7 +144,8 @@ def gene_set_features(X, gene_sets, min_genes, max_genes):
         filtered_genes = X.loc[X.index.isin(ids)]
         n_matched = len(filtered_genes)
         if n_matched >= min_genes and n_matched <= max_genes:
-            row = filtered_genes.var(axis=0, numeric_only=True).to_frame().T
+            #row = filtered_genes.var(axis=0, ddof=0, numeric_only=True).to_frame().T
+            row = filtered_genes.max(axis=0, numeric_only=True).to_frame().T
             terms.append(gene_sets.loc[i, "name"])
             rows.append(row)
     if len(terms) == 0:
@@ -175,7 +179,7 @@ max_threshold = 10000
 
 X = X.loc[X.max(axis=1) >= min_threshold]
 
-X = X.loc[X.max(axis=1) <= max_threshold]
+# X = X.loc[X.max(axis=1) <= max_threshold]
 
 
 print(f'genes after filter between {min_threshold} and {max_threshold} = {X.shape}')
@@ -184,6 +188,13 @@ min_genes = 1
 max_genes = 10
 
 X_gs = gene_set_features(X, go_gene_sets, min_genes, max_genes)
+
+Xt = X_gs.T
+
+Xt = X_gs.T   # whatever you're feeding to cross_val_score
+print("any NaN:", Xt.isna().any().any())
+print("NaNs per column:\n", Xt.isna().sum()[lambda s: s > 0])   # only columns with NaNs
+print("rows with NaN:\n", Xt[Xt.isna().any(axis=1)].index.tolist())
 
 '''
 - Networks based on relevant processes, select from filtered genes
@@ -204,8 +215,17 @@ X_gs = gene_set_features(X, go_gene_sets, min_genes, max_genes)
 '''
 
 filter_string = "autophag"
+#filter_string = "RNA"
+
+filter_string = "neurotrophin"
+
+# filter_string = "mucin"
+
+
 
 X_gs = X_gs.loc[X_gs.index.str.contains(filter_string)]
+
+
 
 print(f'gene sets {min_genes} to {max_genes} and name contains {filter_string} = {X_gs.shape}')
 
@@ -222,7 +242,10 @@ X_all = pd.concat([X_gs, meta_features])
 # transpose so samples are rows and features are columns (sklearn convention)
 X_all = X_all.T
 
-y = [s.split('_')[0] for s in X_all.index]
+# y = [s.split('_')[0] for s in X_all.index]
+
+y = [1 if s.split("_")[0] == "AD" else 0 for s in X_all.index]
+
 
 # print("y:")
 # print(y)
@@ -234,8 +257,37 @@ y = [s.split('_')[0] for s in X_all.index]
 
 # utils.silver_seq_classify(X2, y, model_pipeline)
 
+scores = ["accuracy", "roc_auc", "f1_macro"]
 
-clf = RandomForestClassifier(n_estimators=100, random_state=42)
+clf = RandomForestClassifier(n_estimators=50, random_state=42)
+
+pipe = Pipeline([
+    ("scaler", StandardScaler()),
+    ("clf", LogisticRegression(max_iter=200, random_state=42)),
+])
+
+print("gene sets")
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(clf, X_gs.T, y, cv=cv, scoring="roc_auc")
+print(f'accuracy per fold: {scores}')
+print(f'mean = {scores.mean():.3f} +/- {scores.std():.3f}')
+
+print('gene sets + meta ')
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(clf, X_all, y, cv=cv, scoring="roc_auc")
+print(f'accuracy per fold: {scores}')
+print(f'mean = {scores.mean():.3f} +/- {scores.std():.3f}')
+
+print("metadata only")
+# clf = RandomForestClassifier(n_estimators=50, random_state=42)
+
+X_meta = pd.get_dummies(silver_seq_meta[meta_cols], drop_first=True)
+y_meta = silver_seq_meta['donor_group']
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(clf, X_meta, y_meta, cv=cv, scoring="roc_auc")
+print(f'accuracy per fold: {scores}')
+print(f'mean = {scores.mean():.3f} +/- {scores.std():.3f}')
+
 X_train, X_test, y_train, y_test = train_test_split(X_all, y, test_size=0.2, random_state=42)
 print(X_train.head())
 clf.fit(X_train, y_train)
@@ -245,19 +297,20 @@ print(classification_report(y_test, y_pred))
 cm = confusion_matrix(y_test, y_pred)
 ConfusionMatrixDisplay(cm, display_labels=clf.classes_).plot()
 utils.plot_roc(clf, X_test, y_test)
-    
 
-# --- Plot 2: Feature Importance ---
-# We extract the importance scores and map them to column names
-importances = clf.feature_importances_
-feature_names = X_all.columns
-forest_importances = pd.Series(importances, index=feature_names).sort_values(ascending=True)
-forest_importances = forest_importances[-10:]
 
-plt.figure(figsize=(10, 6))
-forest_importances.plot(kind='barh', color='skyblue', edgecolor='black')
-plt.title('Random Forest Feature Importance')
-plt.xlabel('Importance Score (Gini Importance)')
-plt.ylabel('Features')
-plt.tight_layout()
-plt.show()
+
+# # --- Plot 2: Feature Importance ---
+# # We extract the importance scores and map them to column names
+# importances = clf.feature_importances_
+# feature_names = X_all.columns
+# forest_importances = pd.Series(importances, index=feature_names).sort_values(ascending=True)
+# forest_importances = forest_importances[-10:]
+
+# plt.figure(figsize=(10, 6))
+# forest_importances.plot(kind='barh', color='skyblue', edgecolor='black')
+# plt.title('Random Forest Feature Importance')
+# plt.xlabel('Importance Score (Gini Importance)')
+# plt.ylabel('Features')
+# plt.tight_layout()
+# plt.show()

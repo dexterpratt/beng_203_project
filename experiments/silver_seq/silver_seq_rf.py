@@ -10,6 +10,8 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import silver_seq_utils as utils
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+
 
 '''
 counts_path = '/Users/idekeradmin/Dropbox/GitHub/AD_prediction_blood/experiments/silver_seq/silver_seq_counts.txt'
@@ -94,7 +96,7 @@ X, silver_seq_counts, silver_seq_counts = utils.load_silver_seq_data()
 
 # utils.silver_seq_classify(X, y, model_pipeline)
 
-X, y = utils.variance_features(X, 50)
+# X, y = utils.variance_features(X, 50)
 
 # print(X)
 
@@ -190,9 +192,20 @@ cfrna_ad_candidates = [
     "MALAT1",      # abundant, though not brain-specific
 ]
 
+biogrid_genes = [
+    "ACTR3", "AKAP6", "ATP2A2", "BDNF", "CAST", "CBLN4", "CIT", "CLASP2",
+    "COL6A2", "COL7A1", "ELP2", "FLT1", "GTF2H1", "INPP5D", "ITSN1",
+    "LRPAP1", "MAPK1", "MRTFB",
+]
+
+
 #print(f'symbols = {neural_genes}')
 
-X = utils.filter_genes_by_symbols(X, neural_genes + top_variable, exclude=False)
+X = X.loc[X.max(axis=1) >= 100]
+
+X = X.T
+
+X = utils.filter_genes_by_symbols(X, biogrid_genes, exclude=False)
 
 y = [row.split('_')[0] for row in X.index]
 
@@ -203,9 +216,16 @@ model_pipeline = Pipeline([
     ('logreg', LogisticRegression(max_iter=5000, random_state=42)) # Keep increased max_iter
 ])
 
-utils.silver_seq_classify(X, y, model_pipeline)
+#utils.silver_seq_classify(X, y, model_pipeline)
 
-# utils.silver_seq_classify(X, y, RandomForestClassifier(n_estimators=500))
+utils.silver_seq_classify(X, y, RandomForestClassifier(n_estimators=100))
+
+clf = RandomForestClassifier(n_estimators=50, random_state=42)
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(clf, X, y, cv=cv, scoring="roc_auc")
+print(f'accuracy per fold: {scores}')
+print(f'mean = {scores.mean():.3f} +/- {scores.std():.3f}')
 
 # silver_seq_classify(X, y, MultinomialNB())
 
