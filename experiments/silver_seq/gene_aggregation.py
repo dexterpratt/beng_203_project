@@ -124,7 +124,7 @@ def create_go_gene_sets():
     # print(gene_sets.shape)
     # print(gene_sets.head(10))
     # print(test)
-    gene_sets.to_csv('experiments/silver_seq/data/gene_sets.csv')
+    gene_sets.to_csv('experiments/silver_seq/data/go_gene_sets.csv')
     return gene_sets
 
 # create_go_gene_sets()
@@ -161,7 +161,7 @@ def filter_by_tpm(X, threshold):
 
 #------------------------------------------------------
 
-go_gene_sets = pd.read_csv(DATA_DIR / "data/gene_sets.csv")
+go_gene_sets = pd.read_csv("experiments/silver_seq/data/go_gene_sets.csv")
 
 X, silver_seq_counts, silver_seq_meta = utils.load_silver_seq_data()
 
@@ -169,9 +169,9 @@ print(f'genes before filtering = {X.shape}')
 
 # print(X.head())
 
-min_threshold = 100
+min_threshold = 45
 
-max_threshold = 10000
+# max_threshold = 10000
 
 # for i in range(5):
 #     m = X.iloc[:,i].max()
@@ -182,7 +182,7 @@ X = X.loc[X.max(axis=1) >= min_threshold]
 # X = X.loc[X.max(axis=1) <= max_threshold]
 
 
-print(f'genes after filter between {min_threshold} and {max_threshold} = {X.shape}')
+print(f'genes after filter below {min_threshold} = {X.shape}')
 
 min_genes = 1
 max_genes = 10
@@ -217,15 +217,11 @@ print("rows with NaN:\n", Xt[Xt.isna().any(axis=1)].index.tolist())
 filter_string = "autophag"
 #filter_string = "RNA"
 
-filter_string = "neurotrophin"
+filter_string = "respiratory"
 
 # filter_string = "mucin"
 
-
-
 X_gs = X_gs.loc[X_gs.index.str.contains(filter_string)]
-
-
 
 print(f'gene sets {min_genes} to {max_genes} and name contains {filter_string} = {X_gs.shape}')
 
