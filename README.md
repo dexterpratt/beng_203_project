@@ -1,4 +1,4 @@
-# BENG 203 Class Project
+# BENG 203 Class Project - group 14
 
 This repo was started from the AD_Prediction_blood repo
 
@@ -18,6 +18,11 @@ Utilities and code experiments are added in /experiments
 **Mitochondrial genes**. The high-variance mitochondrial genes identified in the dataset were selected as features, given the important roles that mitochondria play in processes such as cytochrome C release, apoptosis, or oxidative stress.
 
 **Metadata-augmented feature sets**. For all feature sets, we trained classifiers on both the set and the set in combination with the metadata features, evaluating (1) classifier performance alone and (2) whether it could improve the baseline metadata classifiers.
+
+# Relevant notebooks
+- [Data Exploration](https://github.com/dexterpratt/beng_203_project/blob/main/classifier_pipeline.ipynb)
+- [Make Gene Sets](https://github.com/dexterpratt/beng_203_project/blob/main/make_gene_sets.ipynb)
+- [Classifier Pipeline](https://github.com/dexterpratt/beng_203_project/blob/main/classifier_pipeline.ipynb)
 
 ___________________________________
 ## Original README:
